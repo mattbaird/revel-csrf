@@ -3,7 +3,6 @@ package csrf
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"github.com/revel/revel"
@@ -36,7 +35,7 @@ func init() {
 		if rawTokenLength < 32 || rawTokenLength > 512 {
 			panic(fmt.Sprintf("REVEL_CSRF: csrf.token.length=%d: expected a length in [32..512]", rawTokenLength))
 		}
-		lengthCSRFToken = base64.StdEncoding.EncodedLen(rawTokenLength)
+		lengthCSRFToken = hex.EncodedLen(rawTokenLength)
 
 		// Check that cryptographically secure PRNG is available.
 		_, err := randomString(1)

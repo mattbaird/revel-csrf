@@ -42,8 +42,8 @@ var CSRFFilter = func(c *revel.Controller, fc []revel.Filter) {
 			// onto a new algorithm for generating tokens, or a new session has
 			// been initiated. In any case, a new token is generated and the
 			// error will be detected later.
-			revel.TRACE.Printf("REVEL_CSRF: Bad token length: found %d, expected %d",
-				len(realToken), lengthCSRFToken)
+			revel.TRACE.Printf("REVEL_CSRF: Bad token length: found %d (%s), expected %d (%s)",
+				len(realToken), realToken, lengthCSRFToken)
 			realToken = generateNewToken(c)
 		}
 	}
