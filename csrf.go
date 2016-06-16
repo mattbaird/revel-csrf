@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	cookieName = "csrf_token"
-	fieldName  = "csrf_token"
-	headerName = "X-CSRF-Token"
+	cookieName      = "csrf_token"
+	fieldName       = "csrf_token"
+	ajaxHeaderName1 = "X-CSRF-Token"
+	ajaxHeaderName2 = "X-CSRFToken"
 )
 
 var (
@@ -46,7 +47,6 @@ var CSRFFilter = func(c *revel.Controller, fc []revel.Filter) {
 			realToken = generateNewToken(c)
 		}
 	}
-
 	c.RenderArgs[fieldName] = realToken
 
 	// See http://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Safe_methods
@@ -58,14 +58,20 @@ var CSRFFilter = func(c *revel.Controller, fc []revel.Filter) {
 			referer, err := url.Parse(r.Header.Get("Referer"))
 			if err != nil || referer.String() == "" {
 				// Parse error or empty referer.
+				revel.WARN.Println(errNoReferer)
 				c.Result = c.Forbidden(errNoReferer)
 				return
 			}
 			// See [OWASP]; Checking the Origin Header.
 			if !sameOrigin(referer, r.URL) {
+				revel.WARN.Println(errBadReferer)
 				c.Result = c.Forbidden(errBadReferer)
 				return
 			}
+		}
+		// check for token in post
+		if realToken == "" && c.Request.Method == "POST" {
+			realToken = c.Request.FormValue(fieldName)
 		}
 
 		sentToken := ""
@@ -74,7 +80,12 @@ var CSRFFilter = func(c *revel.Controller, fc []revel.Filter) {
 			// of use with popular JavaScript toolkits which allow insertion of
 			// custom headers into all AJAX requests.
 			// See http://erlend.oftedal.no/blog/?blogid=118
-			sentToken = r.Header.Get(headerName)
+			// try both X-CSRF-Token and X-CSRFToken since
+			// no one could apparently decide which one is right
+			sentToken = r.Header.Get(ajaxHeaderName1)
+			if sentToken == "" {
+				sentToken = r.Header.Get(ajaxHeaderName2)
+			}
 		}
 		if sentToken == "" {
 			// Get CSRF token from form.
@@ -83,11 +94,13 @@ var CSRFFilter = func(c *revel.Controller, fc []revel.Filter) {
 		revel.TRACE.Printf("REVEL-CSRF: Token received from client: '%s'", sentToken)
 
 		if len(sentToken) != len(realToken) {
+			revel.WARN.Println(errBadToken + " Length mismatch")
 			c.Result = c.Forbidden(errBadToken)
 			return
 		}
 		comparison := subtle.ConstantTimeCompare([]byte(sentToken), []byte(realToken))
 		if comparison != 1 {
+			revel.WARN.Println(errBadToken + " ConstantTimeCompare mismatch")
 			c.Result = c.Forbidden(errBadToken)
 			return
 		}
