@@ -69,11 +69,6 @@ var CSRFFilter = func(c *revel.Controller, fc []revel.Filter) {
 				return
 			}
 		}
-		// check for token in post
-		if realToken == "" && c.Request.Method == "POST" {
-			realToken = c.Request.FormValue(fieldName)
-		}
-
 		sentToken := ""
 		if ajaxSupport := revel.Config.BoolDefault("csrf.ajax", false); ajaxSupport {
 			// Accept CSRF token in the custom HTTP header X-CSRF-Token, for ease
@@ -91,6 +86,11 @@ var CSRFFilter = func(c *revel.Controller, fc []revel.Filter) {
 			// Get CSRF token from form.
 			sentToken = c.Params.Get(fieldName)
 		}
+		// check for token in post
+		if sentToken == "" && c.Request.Method == "POST" {
+			sentToken = c.Request.FormValue(fieldName)
+		}
+
 		revel.TRACE.Printf("REVEL-CSRF: Token received from client: '%s'", sentToken)
 
 		if len(sentToken) != len(realToken) {
@@ -100,7 +100,7 @@ var CSRFFilter = func(c *revel.Controller, fc []revel.Filter) {
 		}
 		comparison := subtle.ConstantTimeCompare([]byte(sentToken), []byte(realToken))
 		if comparison != 1 {
-			revel.WARN.Println(errBadToken + " ConstantTimeCompare mismatch")
+			revel.WARN.Printf(errBadToken+" ConstantTimeCompare mismatch: %s %s\n", sentToken, realToken)
 			c.Result = c.Forbidden(errBadToken)
 			return
 		}
